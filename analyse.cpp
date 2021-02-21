@@ -41,7 +41,7 @@ bool is_hybrid(std::string name) {
 
 	found = name.find("mPMT");
 	found2 = name.find("hybrid");
-	if ((found != std::string::npos) && (found2 != std::string::npos)) return true;
+	if ((found != std::string::npos) || (found2 != std::string::npos)) return true;
 	else return false;
 }
 
@@ -106,7 +106,7 @@ int main(int argc, char** argv) {
 	if (filename == NULL) {
 		filename = "./RootFiles/wcsim_hybrid\(10MeVe-\).root";
 	}
-
+	hybrid = is_hybrid((std::string)filename);
 	file = new TFile(filename, "read");
 
 	if (!file->IsOpen()) {
@@ -163,9 +163,9 @@ int main(int argc, char** argv) {
 	if (opttree->GetEntries() == 0) {
 		exit(9);
 	}
-	opttree->GetEntry(0);
 	opt->Print();
-
+	//opttree->GetEntry(0);
+	if (verbose) std::cout << "Starting analysis..." << std::endl;
 	// start with the main "subevent", as it contains most of the info
 	// and always exists.
 	WCSimRootTrigger* wcsimrootevent;
@@ -190,15 +190,16 @@ int main(int argc, char** argv) {
 	TH1D* mpmtPosX = new TH1D("mPMT X Pos", "X Pos for hit mPMTs", 200, -4000, 4000);
 	TH1D* mpmtPosY = new TH1D("mPMT Y Pos", "Y Pos for hit mPMTs", 200, -4000, 4000);
 	TH1D* mpmtPosZ = new TH1D("mPMT Z Pos", "Z Pos for hit mPMTs", 200, -4000, 4000);
-	TH1D* mvertX = new TH1D("Vert X", "Event vertex X positions", 1000, -5000, 5000);
-	TH1D* mvertY = new TH1D("Vert Y", "Event vertex Y positions", 1000, -5000, 5000);
-	TH1D* mvertZ = new TH1D("Vert Z", "Event vertex Z positions", 1000, -5000, 5000);
+	TH1D* mvertX = new TH1D("mVert X", "Event vertex X positions", 1000, -5000, 5000);
+	TH1D* mvertY = new TH1D("mVert Y", "Event vertex Y positions", 1000, -5000, 5000);
+	TH1D* mvertZ = new TH1D("mVert Z", "Event vertex Z positions", 1000, -5000, 5000);
 
 	std::vector<Pos> positions;
 	std::vector<Pos> mPositions;
 	std::vector<int> IDs;
 	std::vector<int> mIDs;
 	std::vector<double> Qdata(nPMT);
+	if (nmPMT == 0) nmPMT = 1;
 	std::vector<double> mQdata(nmPMT);
 
 	std::vector<std::string> consoletxt;
@@ -208,6 +209,8 @@ int main(int argc, char** argv) {
 
 		// Read the event from the tree into the WCSimRootEvent instance
 		tree->GetEntry(ev);
+		if (verbose) std::cout << "Got tree entry" << std::endl;
+
 
 		wcsimrootevent = wcsimrootsuperevent->GetTrigger(0);
 		if (hybrid) wcsimrootevent2 = wcsimrootsuperevent2->GetTrigger(0);
@@ -236,12 +239,12 @@ int main(int argc, char** argv) {
 		vertZ->Fill(wcsimrootevent->GetVtx(2));
 
 		//event is the same??
-		/*
+		
 		if (hybrid) {
 			mvertX->Fill(wcsimrootevent2->GetVtx(0));
 			mvertY->Fill(wcsimrootevent2->GetVtx(1));
 			mvertZ->Fill(wcsimrootevent2->GetVtx(2));
-		}*/
+		}
 
 		std::vector<float> triggerInfo;
 		triggerInfo.clear();
@@ -490,10 +493,10 @@ int main(int argc, char** argv) {
 					}
 
 					if ((i % 5 == 0) && (j % (mPositions.size() - 1) == 0)) {
-						//std::system("clear");
+						std::system("clear");
 						auto now = std::chrono::system_clock::now();
 						for (auto st : consoletxt) std::cout << st << std::endl;
-						std::cout << filename << "| " << i << ", " << j << "| Time Running: " << std::chrono::duration<double>(now - start).count() << " s" << std::endl;
+						std::cout << filename << "| (" << i << "/ " << positions.size() << "),  (" << j <<"/ " << mPositions.size() << ") | Time Running: " << std::chrono::duration<double>(now - start).count() << " s" << std::endl;
 					}
 
 				}
@@ -535,10 +538,10 @@ int main(int argc, char** argv) {
 						}
 
 						if ((i % 5 == 0) && (j % (positions.size() - 1) == 0)) {
-							//std::system("clear");
+							std::system("clear");
 							auto now = std::chrono::system_clock::now();
 							for (auto st : consoletxt) std::cout << st << std::endl;
-							std::cout << (std::string)filename << "| " << i << ", " << j << "| Time Running: " << std::chrono::duration<double>(now - start).count() << " s" << std::endl;
+							std::cout << (std::string)filename << "| (" << i << "/ " << positions.size() << "),  (" << j << "/ " << positions.size() << ") | Time Running: " << std::chrono::duration<double>(now - start).count() << " s" << std::endl;
 						}
 					}
 				}
@@ -561,7 +564,7 @@ int main(int argc, char** argv) {
 
 	int nHigh = 3;
 	int nWide = 1;
-	std::cout << "Zeros: (q1, q2)" << count(filterQ1.begin(), filterQ1.end(), 0) << ", " << count(filterQ2.begin(), filterQ2.end(), 0) << std::endl;
+	std::cout << "Zeros (q1, q2): " << count(filterQ1.begin(), filterQ1.end(), 0) << ", " << count(filterQ2.begin(), filterQ2.end(), 0) << std::endl;
 	TCanvas* c1 = new TCanvas("c1", "First canvas", nWide * 1920, nHigh * 1080);
 	c1->Divide(nWide, nHigh);
 	c1->cd(1); pmtPosX->GetXaxis()->SetTitle("PMT Position, x [cm]"); pmtPosX->GetYaxis()->SetTitle("# of PMTs"); pmtPosX->SetFillColor(kBlue); pmtPosX->Draw();
@@ -595,7 +598,7 @@ int main(int argc, char** argv) {
 	c3->cd(3); dists->GetXaxis()->SetTitle("Distance between hit PMTs [cm]"); dists->GetYaxis()->SetTitle("Count"); dists->SetFillColor(kBlue); dists->Draw();
 	c3->Draw();
 
-
+	if (verbose) std::cout << "making charge plots" << std::endl;
 	double maxQ1 = double(filterQ1.at(std::distance(filterQ1.begin(), std::max_element(std::begin(filterQ1), std::end(filterQ1)))));
 	double maxQ2 = double(filterQ2.at(std::distance(filterQ2.begin(), std::max_element(std::begin(filterQ2), std::end(filterQ2)))));
 	double minQ1 = double(filterQ1.at(std::distance(filterQ1.begin(), std::min_element(std::begin(filterQ1), std::end(filterQ1)))));
@@ -613,9 +616,9 @@ int main(int argc, char** argv) {
 	fn = fn.substr(0, fn.find(".root"));
 
 	int nbins = 200;
-	TH2D* pmtQvQ = new TH2D("QvQ", ((std::string)"Q2 vs Q1 for hit PMTs (" + fn.substr(25, fn.find(")") - 1)).c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
+	TH2D* pmtQvQ = new TH2D("QvQ", ((std::string)"Q2 vs Q1 for hit PMTs (" + fn.substr(12, fn.length())).c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
 	nbins = 50;
-	TProfile* QvQProfile = new TProfile("QvQ Profile", ((std::string)"Q2 vs Q1 for hit PMTs (" + fn.substr(25, fn.find(")") - 1)).c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
+	TProfile* QvQProfile = new TProfile("QvQ Profile", ((std::string)"Q2 vs Q1 for hit PMTs (" + fn.substr(12, fn.length())).c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
 
 	for (int i = 0; i < filterQ1.size(); i++) {
 		pmtQvQ->Fill(filterQ1.at(i), filterQ2.at(i));
@@ -650,9 +653,9 @@ int main(int argc, char** argv) {
 	else minQ2 *= 1.1;
 
 	nbins = 200;
-	TH2D* pmtLogQvQ = new TH2D("LogQvQ", ((std::string)"ln(Q2) vs ln(Q1) for hit PMTs (" + fn.substr(25, fn.find(")") - 1)).c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
+	TH2D* pmtLogQvQ = new TH2D("LogQvQ", ((std::string)"ln(Q2) vs ln(Q1) for hit PMTs (" + fn.substr(12, fn.length())).c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
 	nbins = 100;
-	TProfile* LogQvQProfile = new TProfile("Log QvQ Profile", ((std::string)"ln(Q2) vs ln(Q1) for hit PMTs (" + fn.substr(25, fn.find(")") - 1)).c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
+	TProfile* LogQvQProfile = new TProfile("Log QvQ Profile", ((std::string)"ln(Q2) vs ln(Q1) for hit PMTs (" + fn.substr(12, fn.length())).c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
 
 	for (int i = 0; i < filterQ1.size(); i++) {
 		pmtLogQvQ->Fill(filterQ1.at(i), filterQ2.at(i));
@@ -681,7 +684,7 @@ int main(int argc, char** argv) {
 	c4->Print(out4.c_str());
 	c5->Print(out5.c_str());
 
-	if (outfilename == NULL) outfilename = fn + (std::string)"-out.root";
+	if (outfilename == NULL) outfilename = (fn.substr(12, fn.length()) + (std::string)"-out.root").c_str();
 	TFile* outfile = new TFile(outfilename, "RECREATE");
 	std::cout << "File " << outfilename << " is open for writing" << std::endl;
 

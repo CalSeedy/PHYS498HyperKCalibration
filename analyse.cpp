@@ -234,7 +234,7 @@ int main(int argc, char** argv) {
 		vertX->Fill(wcsimrootevent->GetVtx(0));
 		vertY->Fill(wcsimrootevent->GetVtx(1));
 		vertZ->Fill(wcsimrootevent->GetVtx(2));
-		
+
 		//event is the same??
 		/*
 		if (hybrid) {
@@ -462,6 +462,7 @@ int main(int argc, char** argv) {
 		if (hybrid) {
 			for (int j = 0; j < mPositions.size(); j++) { //  for every mPMT
 				try {
+					if ((Qdata.at(IDs.at(i)) == 0.0) || (mQdata.at(mIDs.at(j)) == 0.0)) continue;
 					Pos pos1 = positions.at(i);
 					double x1 = pos1.Get(0);
 					double y1 = pos1.Get(1);
@@ -506,6 +507,7 @@ int main(int argc, char** argv) {
 			for (int j = i; j < positions.size(); j++) { //  for every other PMT
 				try {
 					if (IDs.at(i) != IDs.at(j)) {
+						if ((Qdata.at(IDs.at(i)) == 0.0) || (Qdata.at(IDs.at(j)) == 0.0)) continue;
 						Pos pos1 = positions.at(i);
 						double x1 = pos1.Get(0);
 						double y1 = pos1.Get(1);
@@ -559,7 +561,7 @@ int main(int argc, char** argv) {
 
 	int nHigh = 3;
 	int nWide = 1;
-
+	std::cout << "Zeros: (q1, q2)" << count(filterQ1.begin(), filterQ1.end(), 0) << ", " << count(filterQ2.begin(), filterQ2.end(), 0) << std::endl;
 	TCanvas* c1 = new TCanvas("c1", "First canvas", nWide * 1920, nHigh * 1080);
 	c1->Divide(nWide, nHigh);
 	c1->cd(1); pmtPosX->GetXaxis()->SetTitle("PMT Position, x [cm]"); pmtPosX->GetYaxis()->SetTitle("# of PMTs"); pmtPosX->SetFillColor(kBlue); pmtPosX->Draw();
@@ -598,6 +600,7 @@ int main(int argc, char** argv) {
 	double maxQ2 = double(filterQ2.at(std::distance(filterQ2.begin(), std::max_element(std::begin(filterQ2), std::end(filterQ2)))));
 	double minQ1 = double(filterQ1.at(std::distance(filterQ1.begin(), std::min_element(std::begin(filterQ1), std::end(filterQ1)))));
 	double minQ2 = double(filterQ2.at(std::distance(filterQ2.begin(), std::min_element(std::begin(filterQ2), std::end(filterQ2)))));
+	std::cout << "Max (q1, q2): " << maxQ1 << ", " << maxQ2 << "| Min (q1, q2): " << minQ1 << ", " << minQ2 << std::endl;
 	maxQ1 *= 1.1;
 	maxQ2 *= 1.1;
 	if (minQ1 > 0.0) minQ1 = 0.0;
@@ -637,6 +640,7 @@ int main(int argc, char** argv) {
 	maxQ2 = double(filterQ2.at(std::distance(filterQ2.begin(), std::max_element(std::begin(filterQ2), std::end(filterQ2)))));
 	minQ1 = double(filterQ1.at(std::distance(filterQ1.begin(), std::min_element(std::begin(filterQ1), std::end(filterQ1)))));
 	minQ2 = double(filterQ2.at(std::distance(filterQ2.begin(), std::min_element(std::begin(filterQ2), std::end(filterQ2)))));
+	std::cout << "Max (q1, q2): " << maxQ1 << ", " << maxQ2 << "| Min (q1, q2): " << minQ1 << ", " << minQ2 << std::endl;
 	maxQ1 *= 1.1;
 	maxQ2 *= 1.1;
 	if (minQ1 > 0.0) minQ1 = 0.0;
@@ -652,7 +656,7 @@ int main(int argc, char** argv) {
 
 	for (int i = 0; i < filterQ1.size(); i++) {
 		pmtLogQvQ->Fill(filterQ1.at(i), filterQ2.at(i));
-		//LogQvQProfile->Fill(filterQ1.at(i), filterQ2.at(i));
+		LogQvQProfile->Fill(filterQ1.at(i), filterQ2.at(i));
 
 	}
 
@@ -677,13 +681,36 @@ int main(int argc, char** argv) {
 	c4->Print(out4.c_str());
 	c5->Print(out5.c_str());
 
-	//if (outfilename == NULL) sprintf(outfilename, "out.root");
-	/*
+	if (outfilename == NULL) outfilename = fn + (std::string)"-out.root";
 	TFile* outfile = new TFile(outfilename, "RECREATE");
 	std::cout << "File " << outfilename << " is open for writing" << std::endl;
 
+	h1->Write();
+	pmtQ->Write();
+	dists->Write();
+	pmtPosX->Write();
+	pmtPosY->Write();
+	pmtPosZ->Write();
+	vertX->Write();
+	vertY->Write();
+	vertZ->Write();
 
+	pmtQvQ->Write();
+	QvQProfile->Write();
+	pmtLogQvQ->Write();
+	LogQvQProfile->Write();
+
+	if (hybrid) {
+		mh1->Write();
+		mpmtQ->Write();
+		mpmtPosX->Write();
+		mpmtPosY->Write();
+		mpmtPosZ->Write();
+		mvertX->Write();
+		mvertY->Write();
+		mvertZ->Write();
+	}
 	outfile->Close();
-	*/
+
 	return 0;
 }

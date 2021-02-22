@@ -113,6 +113,9 @@ int main(int argc, char** argv) {
 		std::cout << "Error, could not open input file: " << filename << std::endl;
 		return -1;
 	}
+
+	
+
 	std::cout << "Analysing " << filename << std::endl;
 	// Get the a pointer to the tree from the file
 	TTree* tree = (TTree*)file->Get("wcsimT");
@@ -613,12 +616,14 @@ int main(int argc, char** argv) {
 	else minQ2 *= 1.1;
 
 	std::string fn(filename);
-	fn = fn.substr(0, fn.find(".root"));
-
+	std::cout << fn << std::endl;
+	int a = fn.rfind("/"); // path/to/folder/file.ext    -- find last slash (/)
+	std::string fn1 = fn.substr(a + 1, fn.length() - a - 6); // attempt to grab "file"
+	std::cout << fn1 << std::endl;
 	int nbins = 200;
-	TH2D* pmtQvQ = new TH2D("QvQ", ((std::string)"Q2 vs Q1 for hit PMTs (" + fn.substr(12, fn.length())).c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
+	TH2D* pmtQvQ = new TH2D("QvQ", ((std::string)"Q2 vs Q1 for hit PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
 	nbins = 50;
-	TProfile* QvQProfile = new TProfile("QvQ Profile", ((std::string)"Q2 vs Q1 for hit PMTs (" + fn.substr(12, fn.length())).c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
+	TProfile* QvQProfile = new TProfile("QvQ Profile", ((std::string)"Q2 vs Q1 for hit PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
 
 	for (int i = 0; i < filterQ1.size(); i++) {
 		pmtQvQ->Fill(filterQ1.at(i), filterQ2.at(i));
@@ -653,9 +658,9 @@ int main(int argc, char** argv) {
 	else minQ2 *= 1.1;
 
 	nbins = 200;
-	TH2D* pmtLogQvQ = new TH2D("LogQvQ", ((std::string)"ln(Q2) vs ln(Q1) for hit PMTs (" + fn.substr(12, fn.length())).c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
+	TH2D* pmtLogQvQ = new TH2D("LogQvQ", ((std::string)"ln(Q2) vs ln(Q1) for hit PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
 	nbins = 100;
-	TProfile* LogQvQProfile = new TProfile("Log QvQ Profile", ((std::string)"ln(Q2) vs ln(Q1) for hit PMTs (" + fn.substr(12, fn.length())).c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
+	TProfile* LogQvQProfile = new TProfile("Log QvQ Profile", ((std::string)"ln(Q2) vs ln(Q1) for hit PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
 
 	for (int i = 0; i < filterQ1.size(); i++) {
 		pmtLogQvQ->Fill(filterQ1.at(i), filterQ2.at(i));
@@ -671,11 +676,11 @@ int main(int argc, char** argv) {
 	c5->Draw();
 
 
-	std::string out1 = fn.substr(12, fn.length()) + (std::string)"-positions.png";
-	std::string out2 = fn.substr(12, fn.length()) + (std::string)"-verts.png";
-	std::string out3 = fn.substr(12, fn.length()) + (std::string)"-main.png";
-	std::string out4 = fn.substr(12, fn.length()) + (std::string)"-charges.png";
-	std::string out5 = fn.substr(12, fn.length()) + (std::string)"-logCharges.png";
+	std::string out1 = fn1 + (std::string)"-positions.png";
+	std::string out2 = fn1 + (std::string)"-verts.png";
+	std::string out3 = fn1 + (std::string)"-main.png";
+	std::string out4 = fn1 + (std::string)"-charges.png";
+	std::string out5 = fn1 + (std::string)"-logCharges.png";
 
 
 	c1->Print(out1.c_str());
@@ -684,7 +689,7 @@ int main(int argc, char** argv) {
 	c4->Print(out4.c_str());
 	c5->Print(out5.c_str());
 
-	if (outfilename == NULL) outfilename = (fn.substr(12, fn.length()) + (std::string)"-out.root").c_str();
+	if (outfilename == NULL) outfilename = (fn1 + (std::string)"-out.root").c_str();
 	TFile* outfile = new TFile(outfilename, "RECREATE");
 	std::cout << "File " << outfilename << " is open for writing" << std::endl;
 

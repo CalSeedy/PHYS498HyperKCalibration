@@ -567,7 +567,7 @@ int main(int argc, char** argv) {
 
 	int nHigh = 3;
 	int nWide = 1;
-	std::cout << "Zeros (q1, q2): " << count(filterQ1.begin(), filterQ1.end(), 0) << ", " << count(filterQ2.begin(), filterQ2.end(), 0) << std::endl;
+	//std::cout << "Zeros (q1, q2): " << count(filterQ1.begin(), filterQ1.end(), 0) << ", " << count(filterQ2.begin(), filterQ2.end(), 0) << std::endl;
 	TCanvas* c1 = new TCanvas("c1", "First canvas", nWide * 1920, nHigh * 1080);
 	c1->Divide(nWide, nHigh);
 	c1->cd(1); pmtPosX->GetXaxis()->SetTitle("PMT Position, x [cm]"); pmtPosX->GetYaxis()->SetTitle("# of PMTs"); pmtPosX->SetFillColor(kBlue); pmtPosX->Draw();
@@ -620,10 +620,10 @@ int main(int argc, char** argv) {
 	int a = fn.rfind("/"); // path/to/folder/file.ext    -- find last slash (/)
 	std::string fn1 = fn.substr(a + 1, fn.length() - a - 6); // attempt to grab "file"
 	std::cout << fn1 << std::endl;
-	int nbins = 200;
-	TH2D* pmtQvQ = new TH2D("QvQ", ((std::string)"Q2 vs Q1 for hit PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
-	nbins = 50;
-	TProfile* QvQProfile = new TProfile("QvQ Profile", ((std::string)"Q2 vs Q1 for hit PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
+	int nbins = 500;
+	TH2D* pmtQvQ = new TH2D(((std::string)"Q2 vs Q1 for hit (m)PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
+	nbins = 250;
+	TProfile* QvQProfile = new TProfile("QvQ Profile", ((std::string)"Q2 vs Q1 for hit (m)PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
 
 	for (int i = 0; i < filterQ1.size(); i++) {
 		pmtQvQ->Fill(filterQ1.at(i), filterQ2.at(i));
@@ -632,8 +632,11 @@ int main(int argc, char** argv) {
 
 	TCanvas* c4 = new TCanvas("c4", "Fourth canvas", 1920 * 2, 1080);
 	c4->Divide(2, 1);
-	c4->cd(1); pmtQvQ->SetContour(100); pmtQvQ->GetXaxis()->SetTitle("Charge on hit PMT, Q1"); pmtQvQ->GetYaxis()->SetTitle("Charge on other hit PMT, Q2"); pmtQvQ->Draw("COLZ");
-	c4->cd(2); QvQProfile->GetXaxis()->SetTitle("Charge on hit PMT, Q1"); QvQProfile->GetYaxis()->SetTitle("Charge on other hit PMT, Q2"); QvQProfile->Draw();
+	char* yaxis;
+	if (hybrid) yaxis = "Charge on hit mPMT, Q2"
+	else yaxis = "Charge on other hit PMT, Q2";
+	c4->cd(1); pmtQvQ->SetContour(100); pmtQvQ->GetXaxis()->SetTitle("Charge on hit PMT, Q1"); pmtQvQ->GetYaxis()->SetTitle(yaxis); pmtQvQ->Draw("COLZ");
+	c4->cd(2); QvQProfile->GetXaxis()->SetTitle("Charge on hit PMT, Q1"); QvQProfile->GetYaxis()->SetTitle(yaxis); QvQProfile->Draw();
 	c4->Draw();
 
 
@@ -648,7 +651,7 @@ int main(int argc, char** argv) {
 	maxQ2 = double(filterQ2.at(std::distance(filterQ2.begin(), std::max_element(std::begin(filterQ2), std::end(filterQ2)))));
 	minQ1 = double(filterQ1.at(std::distance(filterQ1.begin(), std::min_element(std::begin(filterQ1), std::end(filterQ1)))));
 	minQ2 = double(filterQ2.at(std::distance(filterQ2.begin(), std::min_element(std::begin(filterQ2), std::end(filterQ2)))));
-	std::cout << "Max (q1, q2): " << maxQ1 << ", " << maxQ2 << "| Min (q1, q2): " << minQ1 << ", " << minQ2 << std::endl;
+	//std::cout << "Max (q1, q2): " << maxQ1 << ", " << maxQ2 << "| Min (q1, q2): " << minQ1 << ", " << minQ2 << std::endl;
 	maxQ1 *= 1.1;
 	maxQ2 *= 1.1;
 	if (minQ1 > 0.0) minQ1 = 0.0;
@@ -657,9 +660,9 @@ int main(int argc, char** argv) {
 	if (minQ2 > 0.0) minQ2 = 0.0;
 	else minQ2 *= 1.1;
 
-	nbins = 200;
+	nbins = 500;
 	TH2D* pmtLogQvQ = new TH2D("LogQvQ", ((std::string)"ln(Q2) vs ln(Q1) for hit PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
-	nbins = 100;
+	nbins = 250;
 	TProfile* LogQvQProfile = new TProfile("Log QvQ Profile", ((std::string)"ln(Q2) vs ln(Q1) for hit PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
 
 	for (int i = 0; i < filterQ1.size(); i++) {
@@ -668,11 +671,12 @@ int main(int argc, char** argv) {
 
 	}
 
-
+	if (hybrid) yaxis = "Log Q for hit mPMT, ln(Q2)";
+	else yaxis = "Log Q for other hit PMT, ln(Q2)";
 	TCanvas* c5 = new TCanvas("c5", "Fifth canvas", 1920 * 2, 1080);
 	c5->Divide(2, 1);
-	c5->cd(1); pmtLogQvQ->SetContour(100); pmtLogQvQ->GetXaxis()->SetTitle("Log Q for hit PMT, ln(Q1)"); pmtLogQvQ->GetYaxis()->SetTitle("Log Q for hit mPMT, ln(Q2)"); pmtLogQvQ->Draw("COLZ");
-	c5->cd(2); LogQvQProfile->GetXaxis()->SetTitle("Log Q for hit PMT, ln(Q1)"); LogQvQProfile->GetYaxis()->SetTitle("Log Q for hit mPMT, ln(Q2)"); LogQvQProfile->Draw();
+	c5->cd(1); pmtLogQvQ->SetContour(100); pmtLogQvQ->GetXaxis()->SetTitle("Log Q for hit PMT, ln(Q1)"); pmtLogQvQ->GetYaxis()->SetTitle(yaxis); pmtLogQvQ->Draw("COLZ");
+	c5->cd(2); LogQvQProfile->GetXaxis()->SetTitle("Log Q for hit PMT, ln(Q1)"); LogQvQProfile->GetYaxis()->SetTitle(yaxis); LogQvQProfile->Draw();
 	c5->Draw();
 
 

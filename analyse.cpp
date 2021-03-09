@@ -1,8 +1,10 @@
+#include <algorithm>
 #include <ctime>
 #include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <cmath>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -50,11 +52,22 @@ struct Pos
 {
 	std::vector<double> data;
 
+	Pos() {
+		for (int i = 0; i < 3; i++) data.push_back(0.0);
+	}
+
 	Pos(std::vector<double> values) {
 		for (int i = 0; i < values.size(); i++) {
 			data.push_back(values.at(i));
 		}
 	}
+
+	Pos(const Pos& other) {
+		for (int i = 0; i < other.data.size(); i++) {
+			data.push_back(other.data.at(i));
+		}
+	}
+
 
 	double Get(int ind) {
 		if ((ind < data.size()) && (ind >= 0)) {
@@ -72,8 +85,56 @@ struct Pos
 		}
 		std::cout << "}" << std::endl;
 	}
-};
 
+	double distanceTo(Pos other) {
+		return sqrt((data[0] - other.Get(0))* (data[0] - other.Get(0)) + (data[1] - other.Get(1))*(data[1] - other.Get(1)) + (data[2] - other.Get(2))*(data[2] - other.Get(2)));
+	}
+
+
+	void add(double x) {
+		for (int i = 0; i < data.size(); i++) data.at(i) += x;
+	}
+
+	void divide(double x) {
+		for (int i = 0; i < data.size(); i++) data.at(i) /= x;
+	}
+
+	void divide(int x) {
+		for (int i = 0; i < data.size(); i++) data.at(i) /= x;
+	}
+
+	void add(Pos p) {
+		for (int i = 0; i < data.size(); i++) data.at(i) += p.Get(i); 
+	}
+
+	friend Pos operator+(const Pos& p1, const Pos& p2) {
+		Pos out(p1);
+		out.add(p2);
+		return out;
+	}
+
+	Pos& operator+=(const Pos& p) {
+		this->add(p);
+		return *this;
+	}
+
+	friend Pos operator/(const Pos& p1, const double& x) {
+		Pos out(p1);
+		out.divide(x);
+		return out;
+	}
+
+	friend Pos operator/(const Pos& p1, const int& x) {
+		Pos out(p1);
+		out.divide(x);
+		return out;
+	}
+
+	Pos& operator/=(const double& c) {
+		this->divide(c);
+		return *this;
+	}
+};
 
 
 int main(int argc, char** argv) {
@@ -203,7 +264,38 @@ int main(int argc, char** argv) {
 	std::vector<int> mIDs;
 	std::vector<double> Qdata(nPMT);
 	if (nmPMT == 0) nmPMT = 1;
+	if ((nmPMT % 19 != 0) && (hybrid)) { std::cout << "Leftover PMTs in mPMTs, should be a factor of 19." << std::endl; exit(-1); }
+	std::vector<Pos> mPMTAvgPos;
 	std::vector<double> mQdata(nmPMT);
+	if (hybrid) {
+		mQdata.resize(nmPMT / 19);
+	}
+	/*
+		//assume PMTs in mPMTs are successively made in batches of 19, so 19 continuous indexes make up the mPMT.
+		for (int N = 0; N < nmPMT / 19; N++) {
+			std::vector<Pos> mPMTPositions;
+			for (int i = 0; i < 19; i++) {
+				WCSimRootPMT pmt = geo->GetPMT(19 * N + i, true);
+				std::vector<double> pos = {
+				pmt.GetPosition(0), pmt.GetPosition(1), pmt.GetPosition(2)
+				};
+				Pos p(pos);
+				mPMTPositions.push_back(p);
+			}
+
+			Pos avg;
+			for (Pos p : mPMTPositions) {
+				avg += p;
+			}
+			avg /= 19;
+			if (verbose) {
+				std::cout << "***mPMT#" << N << "Pos Avg.***" << std::endl;
+				avg.Print();
+			}
+			mPMTAvgPos.push_back(avg);
+		}
+	}
+	*/
 
 	std::vector<std::string> consoletxt;
 	// Now loop over events
@@ -240,8 +332,6 @@ int main(int argc, char** argv) {
 		vertX->Fill(wcsimrootevent->GetVtx(0));
 		vertY->Fill(wcsimrootevent->GetVtx(1));
 		vertZ->Fill(wcsimrootevent->GetVtx(2));
-
-		//event is the same??
 		
 		if (hybrid) {
 			mvertX->Fill(wcsimrootevent2->GetVtx(0));
@@ -360,13 +450,18 @@ int main(int argc, char** argv) {
 
 				Pos pos = Pos(PMTpos);
 				if (pmtType == 0) {
-					positions.push_back(PMTpos);
+					positions.push_back(pos);
 					IDs.push_back(tubeNumber - 1);
 				}
+				
 				else {
-					mPositions.push_back(PMTpos);
-					mIDs.push_back(tubeNumber - 1);
+					//int idx = (int)std::floor((tubeNumber - 1) / 19);
+					int idx = tubeNumber - 1;
+					//mPositions.push_back(mPMTAvgPos.at(idx));
+					mPositions.push_back(pos);
+					mIDs.push_back(idx);
 				}
+				
 
 				if (verbose) std::cout << "Added Pos and ID" << std::endl;
 
@@ -395,7 +490,6 @@ int main(int argc, char** argv) {
 			}
 			if (verbose) std::cout << "Total Pe : " << totalPe << std::endl;
 		}// End of loop over Cherenkov hits
-
 
 		// Get the number of digitized hits
 		// Loop over sub events
@@ -437,7 +531,9 @@ int main(int argc, char** argv) {
 				else {
 					pmt = geo->GetPMT(tubeNumber - 1, true);
 					mpmtQ->Fill(peForTube);
-					mQdata[tubeNumber - 1] += peForTube;
+					int idx = (int)std::floor((tubeNumber - 1) / 19);
+					//if (((tubeNumber - 1) % 19) != 0) std::cout << "Tube ID (" << tubeNumber - 1 << ") isn't a multiple of 19!" << std::endl;
+					mQdata[idx] += peForTube;
 				}
 
 
@@ -455,43 +551,39 @@ int main(int argc, char** argv) {
 			} // End of loop over Cherenkov digitised hits
 			if (verbose) std::cout << "Total Pe : " << totalPe << ", total hit : " << totalHit << std::endl;
 		}
-
+		
 		// reinitialize super event between loops.
 		wcsimrootsuperevent->ReInitialize();
 		if (hybrid) wcsimrootsuperevent2->ReInitialize();
 	} // End of loop over events
 	std::cout << "num_trig " << num_trig << "\n";
-
+	
+	
 	std::vector<double> filterQ1, filterQ2;
 
 	for (int i = 0; i < positions.size(); i++) { // for every standard PMT
 		if (hybrid) {
 			for (int j = 0; j < mPositions.size(); j++) { //  for every mPMT
 				try {
-					if ((Qdata.at(IDs.at(i)) == 0.0) || (mQdata.at(mIDs.at(j)) == 0.0)) continue;
+					int id2 = (int)std::floor(mIDs.at(j) / 19);
+					if ((Qdata.at(IDs.at(i)) == 0.0) || (mQdata.at(id2) == 0.0)) continue;
 					Pos pos1 = positions.at(i);
-					double x1 = pos1.Get(0);
-					double y1 = pos1.Get(1);
-					double z1 = pos1.Get(2);
 
 					Pos pos2 = mPositions.at(j);
-					double x2 = pos2.Get(0);
-					double y2 = pos2.Get(1);
-					double z2 = pos2.Get(2);
 
 					if (verbose) {
 						pos1.Print();
 						pos2.Print();
 					}
 
-					double dist = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
+					double dist = pos1.distanceTo(pos2);
 
 					if (dist <= 1000) {
 						dists->Fill(dist);
 
 						if (dist <= 150) {
 							filterQ1.push_back(Qdata.at(IDs.at(i)));
-							filterQ2.push_back(mQdata.at(mIDs.at(j)));
+							filterQ2.push_back(mQdata.at(id2));
 						}
 					}
 
@@ -515,21 +607,15 @@ int main(int argc, char** argv) {
 					if (IDs.at(i) != IDs.at(j)) {
 						if ((Qdata.at(IDs.at(i)) == 0.0) || (Qdata.at(IDs.at(j)) == 0.0)) continue;
 						Pos pos1 = positions.at(i);
-						double x1 = pos1.Get(0);
-						double y1 = pos1.Get(1);
-						double z1 = pos1.Get(2);
 
 						Pos pos2 = positions.at(j);
-						double x2 = pos2.Get(0);
-						double y2 = pos2.Get(1);
-						double z2 = pos2.Get(2);
 
 						if (verbose) {
 							pos1.Print();
 							pos2.Print();
 						}
 
-						double dist = sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2) + (z1 - z2) * (z1 - z2));
+						double dist = pos1.distanceTo(pos2);
 
 						if (dist <= 1000) {
 							dists->Fill(dist);
@@ -621,7 +707,7 @@ int main(int argc, char** argv) {
 	std::string fn1 = fn.substr(a + 1, fn.length() - a - 6); // attempt to grab "file"
 	std::cout << fn1 << std::endl;
 	int nbins = 500;
-	TH2D* pmtQvQ = new TH2D(((std::string)"Q2 vs Q1 for hit (m)PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
+	TH2D* pmtQvQ = new TH2D("pmtQvQ", ((std::string)"Q2 vs Q1 for hit (m)PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
 	nbins = 250;
 	TProfile* QvQProfile = new TProfile("QvQ Profile", ((std::string)"Q2 vs Q1 for hit (m)PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
 
@@ -633,7 +719,7 @@ int main(int argc, char** argv) {
 	TCanvas* c4 = new TCanvas("c4", "Fourth canvas", 1920 * 2, 1080);
 	c4->Divide(2, 1);
 	char* yaxis;
-	if (hybrid) yaxis = "Charge on hit mPMT, Q2"
+	if (hybrid) yaxis = "Charge on hit mPMT, Q2";
 	else yaxis = "Charge on other hit PMT, Q2";
 	c4->cd(1); pmtQvQ->SetContour(100); pmtQvQ->GetXaxis()->SetTitle("Charge on hit PMT, Q1"); pmtQvQ->GetYaxis()->SetTitle(yaxis); pmtQvQ->Draw("COLZ");
 	c4->cd(2); QvQProfile->GetXaxis()->SetTitle("Charge on hit PMT, Q1"); QvQProfile->GetYaxis()->SetTitle(yaxis); QvQProfile->Draw();
@@ -668,7 +754,6 @@ int main(int argc, char** argv) {
 	for (int i = 0; i < filterQ1.size(); i++) {
 		pmtLogQvQ->Fill(filterQ1.at(i), filterQ2.at(i));
 		LogQvQProfile->Fill(filterQ1.at(i), filterQ2.at(i));
-
 	}
 
 	if (hybrid) yaxis = "Log Q for hit mPMT, ln(Q2)";
@@ -723,6 +808,6 @@ int main(int argc, char** argv) {
 		mvertZ->Write();
 	}
 	outfile->Close();
-
+	
 	return 0;
 }

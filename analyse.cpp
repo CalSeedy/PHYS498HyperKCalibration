@@ -706,9 +706,9 @@ int main(int argc, char** argv) {
 	int a = fn.rfind("/"); // path/to/folder/file.ext    -- find last slash (/)
 	std::string fn1 = fn.substr(a + 1, fn.length() - a - 6); // attempt to grab "file"
 	std::cout << fn1 << std::endl;
-	int nbins = 500;
-	TH2D* pmtQvQ = new TH2D("pmtQvQ", ((std::string)"Q2 vs Q1 for hit (m)PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, nbins, minQ2, maxQ2);
-	nbins = 250;
+	int nbins = 300;
+	TH2D* pmtQvQ = new TH2D("pmtQvQ", ((std::string)"Q2 vs Q1 for hit (m)PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, 600.0, nbins, minQ2, maxQ2);
+	nbins = 100;
 	TProfile* QvQProfile = new TProfile("QvQ Profile", ((std::string)"Q2 vs Q1 for hit (m)PMTs (" + fn1 + (std::string)")").c_str(), nbins, minQ1, maxQ1, minQ2, maxQ2);
 
 	for (int i = 0; i < filterQ1.size(); i++) {
@@ -724,7 +724,6 @@ int main(int argc, char** argv) {
 	c4->cd(1); pmtQvQ->SetContour(100); pmtQvQ->GetXaxis()->SetTitle("Charge on hit PMT, Q1"); pmtQvQ->GetYaxis()->SetTitle(yaxis); pmtQvQ->Draw("COLZ");
 	c4->cd(2); QvQProfile->GetXaxis()->SetTitle("Charge on hit PMT, Q1"); QvQProfile->GetYaxis()->SetTitle(yaxis); QvQProfile->Draw();
 	c4->Draw();
-
 
 	for (int i = 0; i < filterQ1.size(); i++) {
 		filterQ1.at(i) = log(filterQ1.at(i));
@@ -764,13 +763,11 @@ int main(int argc, char** argv) {
 	c5->cd(2); LogQvQProfile->GetXaxis()->SetTitle("Log Q for hit PMT, ln(Q1)"); LogQvQProfile->GetYaxis()->SetTitle(yaxis); LogQvQProfile->Draw();
 	c5->Draw();
 
-
 	std::string out1 = fn1 + (std::string)"-positions.png";
 	std::string out2 = fn1 + (std::string)"-verts.png";
 	std::string out3 = fn1 + (std::string)"-main.png";
 	std::string out4 = fn1 + (std::string)"-charges.png";
 	std::string out5 = fn1 + (std::string)"-logCharges.png";
-
 
 	c1->Print(out1.c_str());
 	c2->Print(out2.c_str());

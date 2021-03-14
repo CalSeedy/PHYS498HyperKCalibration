@@ -30,6 +30,7 @@
 #include <TStyle.h>
 #include <TTree.h>
 #include <TVirtualFitter.h>
+#include <Math/MinimizerOptions.h>
 
 #include "WCSimRootEvent.hh"
 #include "WCSimRootGeom.hh"
@@ -44,7 +45,7 @@ double func(double val, double m, double c) {
 
 int main(int argc, char** argv) {
 	char* filename = NULL;
-	char* outfilename = "fit.root";
+	char* outfilename = NULL;
 	bool verbose = false;
 	int c = -1;
 	while ((c = getopt(argc, argv, "f:o:v")) != -1) {//input in c the argument (-f etc...) and in optarg the next argument. When the above test becomes -1, it means it fails to find a new argument.
@@ -74,100 +75,136 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-
-	TProfile* logProf = (TProfile*)file->Get("Log QvQ Profile");
 	TProfile* prof = (TProfile*)file->Get("QvQ Profile");
+	TProfile* logProf = (TProfile*)file->Get("Log QvQ Profile");
 
-
-	double start = logProf->GetBinCenter(0);
-	double end = logProf->GetBinCenter(logProf->GetNbinsX());
+	// Normal Charge Profile
+	double ymin = prof->GetYmin();
+	double ymax = prof->GetYmax();
+	int under = prof->GetBinEntries(0);
+	int over = prof->GetBinEntries(prof->GetNbinsX() + 1);
+	std::cout << "Profile| Underflows: " << under << ", Overflows: " << over << std::endl;
+	double start = prof->GetBinCenter(1);
+	double end = prof->GetBinCenter(prof->GetNbinsX());
+	double w = prof->GetBinCenter(2) - prof->GetBinCenter(1);
 	std::cout << "Start: " << start << ", End: " << end << std::endl;
-	float w = logProf->GetBarWidth();
-	double xstart = start - (w / 2);
-	double xend = end + (w / 2);
+	std::cout << "Min: " << ymin << ", Max: " << ymax << std::endl;
+	auto linearFit = new TF1("linear", "[0]*x + [1]", start, end + (w / 2));
+	linearFit->SetLineColor(kBlack);
 
+	auto linearConf95 = new TGraphErrors(prof->GetNbinsX());
+	for (int i = 1; i <= logProf->GetNbinsX(); i++) {
+		linearConf95->SetPoint(i, prof->GetBinCenter(i), 0.0);
+	}
+	auto linearConf99 = new TGraphErrors(prof->GetNbinsX());
+	for (int i = 1; i <= logProf->GetNbinsX(); i++) {
+		linearConf99->SetPoint(i, prof->GetBinCenter(i), 0.0);
+	}
 
-	TF1* f1 = new TF1("f1", "(x<[0])*[1] + (x>[0])*([2]*x + [1] - [2]*[0])");
-	auto tmpFit = logProf->Fit(f1);
-	TGraphErrors* ge95 = new TGraphErrors(logProf->GetNbinsX());
-	for (int i = 0; i < logProf->GetNbinsX(); i++) ge95->SetPoint(i, logProf->GetBinCenter(i), 0);
-	(TVirtualFitter::GetFitter())->GetConfidenceIntervals(ge95, 0.95);
-	TGraphErrors* ge99 = new TGraphErrors(logProf->GetNbinsX());
-	for (int i = 0; i < logProf->GetNbinsX(); i++) ge99->SetPoint(i, logProf->GetBinCenter(i), 0);
-	(TVirtualFitter::GetFitter())->GetConfidenceIntervals(ge99, 0.99);
+	prof->Fit(linearFit, "R", "SAME");
+	(TVirtualFitter::GetFitter())->GetConfidenceIntervals(linearConf95);
+	(TVirtualFitter::GetFitter())->GetConfidenceIntervals(linearConf99, 0.99);
 
+	// Log Charge Profile
+	ymin = logProf->GetYmin();
+	ymax = logProf->GetYmax();
+	under = logProf->GetBinEntries(0);
+	over = logProf->GetBinEntries(logProf->GetNbinsX() + 1);
+	std::cout << "Profile| Underflows: " << under << ", Overflows: " << over << std::endl;
+	start = logProf->GetBinCenter(1);
+	end = logProf->GetBinCenter(logProf->GetNbinsX());
+	w = logProf->GetBinCenter(2) - logProf->GetBinCenter(1);
+	std::cout << "Start: " << start << ", End: " << end << std::endl;
+	std::cout << "Min: " << ymin << ", Max: " << ymax << std::endl;
+	auto piecewiseFit = new TF1("piecewise", "(x<[0]) ? [1] : [2]*x+[1]-[2]*[0]", start, end + (w / 2));
+	piecewiseFit->SetLineColor(kBlack);
+	piecewiseFit->SetParameter(0, end / 4.0);
+	piecewiseFit->SetParLimits(0, 1.0, 4.0);
+	piecewiseFit->SetParameter(1, 1.0);
+	piecewiseFit->SetParLimits(1, 0.0, 2.0);
+	/*
+	piecewiseFit->SetParameter(2, 1.1);
+	piecewiseFit->SetParLimits(2, 0.9, 1.1);
+	*/
+	auto piecewiseConf95 = new TGraphErrors(logProf->GetNbinsX());
+	for (int i = 1; i <= logProf->GetNbinsX(); i++) {
+		piecewiseConf95->SetPoint(i, logProf->GetBinCenter(i), 0.0);
+	}
+	auto piecewiseConf99 = new TGraphErrors(logProf->GetNbinsX());
+	for (int i = 1; i <= logProf->GetNbinsX(); i++) {
+		piecewiseConf99->SetPoint(i, logProf->GetBinCenter(i), 0.0);
+	}
 
-	TF1* f2 = new TF1("f2", "(x>[0])*([1]*x) + (x<[0])*[3]");
-	f2->SetParameter(0, exp(f1->GetParameter(0)));
-	f2->SetParameter(3, exp(f1->GetParameter(1)));
-	f2->SetParameter(1, exp(f1->GetParameter(1) - f1->GetParameter(0) * f1->GetParameter(2)));
-	f2->SetParameter(2, f1->GetParameter(2));
-	auto fit = prof->Fit(f2);
-	TGraphErrors* ge295 = new TGraphErrors(prof->GetNbinsX());
-	for (int i = 0; i < prof->GetNbinsX(); i++) ge295->SetPoint(i, prof->GetBinCenter(i), 0);
-	(TVirtualFitter::GetFitter())->GetConfidenceIntervals(ge295, 0.95);
-	TGraphErrors* ge299 = new TGraphErrors(prof->GetNbinsX());
-	for (int i = 0; i < prof->GetNbinsX(); i++) ge299->SetPoint(i, prof->GetBinCenter(i), 0);
-	(TVirtualFitter::GetFitter())->GetConfidenceIntervals(ge299, 0.99);
+	logProf->Fit(piecewiseFit, "EWR", "SAME");
+	(TVirtualFitter::GetFitter())->GetConfidenceIntervals(piecewiseConf95);
+	(TVirtualFitter::GetFitter())->GetConfidenceIntervals(piecewiseConf99, 0.99);
 
-	//gStyle->SetHatchesSpacing(0.1);
-	TCanvas* can = new TCanvas("can", "canvas", 3*1920, 2*1080);
-	can->Divide(1, 2);
+	// Plot everything on the canvas
+	auto c1 = new TCanvas("can", "Fit", 1920, 2*1080);
+	c1->Divide(1, 2);
 
-	prof->SetAxisRange(0, 500, "X");
-	f2->SetRange(0, 500);
-	f2->SetLineColor(kBlack);
-	ge295->GetXaxis()->SetRangeUser(0, 500);
-	ge299->GetXaxis()->SetRangeUser(0, 500);
+	c1->cd(1);
+	prof->Draw();
+	linearConf99->SetFillStyle(3001);
+	linearConf99->SetFillColor(kGreen);
+	linearConf99->Draw("SAME E4");
 
-	can->cd(1);
-
-	ge299->SetFillColor(kRed);
-	ge299->SetFillStyle(3002);
-	ge299->Draw("a4+");
-
-	ge295->SetFillColor(kYellow);
-	ge295->SetFillStyle(3002);
-	ge295->Draw("a4+ SAME");
-
-	prof->Draw("SAME");
-	f2->Draw("SAME");
-
-	TLegend* legend = new TLegend(0.1, 0.7, 0.48, 0.9);
-	legend->SetHeader("Legend");
-	legend->AddEntry(prof, "Simulation Data", "pel");
-	legend->AddEntry(f2, "Fit", "l");
-	legend->AddEntry(ge295, "95% CI", "f");
-	legend->AddEntry(ge299, "99% CI", "f");
-	legend->Draw("SAME");
-
-	can->cd(2);
-	logProf->SetAxisRange(xstart, xend, "X");
-	f1->SetRange(xstart, xend);
-	f1->SetLineColor(kBlack);
-	ge95->GetXaxis()->SetRangeUser(xstart, xend);
-	ge99->GetXaxis()->SetRangeUser(xstart, xend);
-
-	ge99->SetFillColor(kRed);
-	ge99->SetFillStyle(3002);
-	ge99->Draw("a4+");
-
-	ge95->SetFillColor(kYellow);
-	ge95->SetFillStyle(3002);
-	ge95->Draw("a4+ SAME");
-
-	logProf->Draw("SAME");
-	f1->Draw("SAME");
+	linearConf95->SetFillStyle(3001);
+	linearConf95->SetFillColor(kRed);
+	linearConf95->Draw("SAME E4");
 	
-	TLegend* legend2 = new TLegend(0.1, 0.7, 0.48, 0.9);
-	legend2->SetHeader("Legend2"); 				
-	legend2->AddEntry(logProf, "Simulation Data", "pel");
-	legend2->AddEntry(f1, "Fit", "l");
-	legend2->AddEntry(ge95, "95% CI", "f");
-	legend2->AddEntry(ge99, "99% CI", "f");
-	legend2->Draw("SAME");
+	TLegend* leg1 = new TLegend(0.12, 0.7, 0.3, 0.85);
+	leg1->AddEntry(prof, "Simulation Data", "lep");
+	leg1->AddEntry(linearFit, "Fit", "l");
+	leg1->AddEntry(linearConf95, "95% CI", "f");
+	leg1->AddEntry(linearConf99, "99% CI", "f");
+	leg1->Draw();
+	
+	c1->cd(2);
 
-	can->Print("fit.png");
+	logProf->Draw();
+	piecewiseConf99->SetFillStyle(3001);
+	piecewiseConf99->SetFillColor(kGreen);
+	piecewiseConf99->Draw("SAME E4");
 
+	piecewiseConf95->SetFillStyle(3001);
+	piecewiseConf95->SetFillColor(kRed);
+	piecewiseConf95->Draw("SAME E4");
+
+	TLegend* leg2 = new TLegend(0.12, 0.7, 0.3, 0.85);
+	leg2->AddEntry(logProf, "Simulation Data", "lep");
+	leg2->AddEntry(piecewiseFit, "Fit", "l");
+	leg2->AddEntry(piecewiseConf95, "95% CI", "f");
+	leg2->AddEntry(piecewiseConf99, "99% CI", "f");
+	leg2->Draw();
+
+
+	c1->Modified();
+	c1->Update();
+
+
+	std::string fn(filename);
+	size_t a = fn.rfind("/"); // path/to/folder/file.ext    -- find last slash (/)
+	std::string fn1 = fn.substr(a + 1, fn.length() - a - 6); // attempt to grab "file"
+	std::cout << fn1 << std::endl;
+
+	c1->Print((fn1 + (std::string)"-fit.png").c_str());
+	
+	TFile* out;
+	if (outfilename == NULL) out = new TFile((fn1 + (std::string)"-rootfile.root").c_str(), "RECREATE");
+	else out = new TFile(outfilename, "RECREATE");
+
+	prof->Write();
+	logProf->Write();
+	
+	linearFit->Write();
+	piecewiseFit->Write();
+	piecewiseConf95->Write();
+	piecewiseConf99->Write();
+	linearConf95->Write();
+	linearConf99->Write();
+
+	out->Close();
+	
 	return 0;
 }

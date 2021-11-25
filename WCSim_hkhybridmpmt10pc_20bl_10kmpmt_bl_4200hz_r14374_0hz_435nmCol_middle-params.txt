@@ -1,0 +1,9 @@
+~~~~~~~~~~~Fitting Parameters~~~~~~~~~~~
+--Linear Fit--
+	Gradient: -0.000030 +/- 0.000097
+	Offset: 1.008982 +/- 0.009507
+	Chi2: 102.146741 (NDF=47)
+
+--Data to Bias Stats--
+	Chi2: 128.148745 (NDF=49)
+

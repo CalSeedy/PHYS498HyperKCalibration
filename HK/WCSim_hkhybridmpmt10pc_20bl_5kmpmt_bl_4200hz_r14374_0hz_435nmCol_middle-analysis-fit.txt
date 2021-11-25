@@ -1,0 +1,9 @@
+------------FITTING PARAMETERS-------------
+Piecewise fit -> (x<[0]) ? [1] : [2]*x+[1]-[2]*[0]
+(knee/turning point) p0: 2.68708 +/- 6.79596e-09
+(vertical offset)    p1: 0.952615 +/- 6.93611e-09
+(gradient)           p2: 2.68708 +/- 6.79596e-09
+
+Linear fit -> [0]*x+[1]
+(gradient)           p0: 0.332994 +/- 0
+(vertical offset)    p1: 0 +/- 5.55112e-16
